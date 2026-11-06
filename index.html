@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>金澤町家巡りアプリ（スポット別クーポン対応）</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- html5-qrcode CDN -->
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+</head>
+<body class="bg-gray-50 text-gray-800 font-sans pb-28">
+
+    <!-- ヘッダー -->
+    <header class="bg-amber-900 text-white p-4 shadow-md text-center sticky top-0 z-40">
+        <h1 class="text-lg font-bold">金澤町家巡りアプリ</h1>
+        <p class="text-xs text-amber-200">カメラでQRを読み取ってスタンプ＆クーポンGET！</p>
+    </header>
+
+    <!-- メインコンテンツ -->
+    <main class="max-w-md mx-auto p-4">
+        
+        <!-- タブ1: マップ画面 -->
+        <div id="tab-map" class="tab-content">
+            <div class="flex justify-between items-center mb-2">
+                <h2 class="text-md font-bold text-amber-900">📍 Googleマップ＆町家スポット</h2>
+                <span class="text-[10px] bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full font-bold">Googleマップ連携</span>
+            </div>
+            
+            <div class="w-full h-56 rounded-lg shadow mb-3 overflow-hidden border border-amber-200">
+                <iframe 
+                    width="100%" 
+                    height="100%" 
+                    style="border:0;" 
+                    allowfullscreen="" 
+                    loading="lazy" 
+                    referrerpolicy="no-referrer-when-downgrade"
+                    src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d6399.6!2d136.655!3d36.570!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x5ff8c5d2b7a9b1c7%3A0x0!2z6YeO5rWZ5paw55S6!5e0!3m2!1sja!2sjp!4v1700000000000!5m2!1sja!2sjp">
+                </iframe>
+            </div>
+
+            <p class="text-[11px] text-gray-600 mb-3 bg-amber-50 p-2.5 rounded border border-amber-200 leading-relaxed">
+                💡 現地の町家を訪れ、「QR読取」からカメラを起動してポスターのQRコードを読み込むと、スタンプとスポット別の特典クーポンがたまります！
+            </p>
+
+            <div class="bg-white p-3 rounded-lg shadow">
+                <h3 class="font-bold text-xs text-gray-500 uppercase mb-2">📌 登録されている町家スポット</h3>
+                <div id="spot-list" class="space-y-3"></div>
+            </div>
+        </div>
+
+        <!-- タブ2: QRコード読み取り画面（カメラ起動） -->
+        <div id="tab-scan" class="tab-content hidden">
+            <h2 class="text-md font-bold mb-2 text-amber-900">📷 QRコードを読み込む</h2>
+            <p class="text-xs text-gray-600 mb-3">現地の町家にあるQRコードをカメラにかざしてください。</p>
+            
+            <div class="bg-white p-3 rounded-lg shadow mb-4 text-center">
+                <div id="reader" class="w-full rounded overflow-hidden mb-2 bg-gray-100 min-h-[220px]"></div>
+                <div id="scan-result" class="text-xs font-bold text-amber-900 mt-2">カメラを起動中...</div>
+            </div>
+
+            <div class="flex gap-2 mb-4">
+                <button onclick="startScanner()" class="flex-1 bg-amber-700 active:scale-95 text-white py-2.5 rounded text-xs font-bold shadow hover:bg-amber-800 transition">カメラを起動する</button>
+                <button onclick="stopScanner()" class="flex-1 bg-gray-300 active:scale-95 text-gray-700 py-2.5 rounded text-xs font-bold shadow hover:bg-gray-400 transition">カメラを停止</button>
+            </div>
+
+            <div class="bg-amber-50 p-3 rounded-lg border border-amber-200 mb-4">
+                <h3 class="font-bold text-xs text-amber-900 mb-1">📱 現地設置用 / テスト読み取り用QRコード</h3>
+                <p class="text-[10px] text-gray-600 mb-2">スマホのカメラで実機テストを行うか、下のボタンでワンタップ取得できます。</p>
+                <div class="grid grid-cols-2 gap-3" id="qr-display-container"></div>
+            </div>
+        </div>
+
+        <!-- タブ3: スタンプ帳・クーポン画面 -->
+        <div id="tab-stamps" class="tab-content hidden">
+            <h2 class="text-md font-bold mb-2 text-amber-900">⛩️ スタンプ帳＆スポット別クーポン</h2>
+            <p class="text-xs text-gray-600 mb-3">集めたスタンプと、それぞれのスポットで使える個別クーポンを確認できます。</p>
+            
+            <div class="bg-white p-3 rounded-lg shadow mb-4">
+                <h3 class="font-bold text-xs text-gray-500 uppercase mb-2">スタンプ獲得状況</h3>
+                <div class="grid grid-cols-2 gap-3" id="stamp-grid"></div>
+            </div>
+
+            <!-- スポット別クーポン一覧コンテナ -->
+            <div id="coupon-container" class="space-y-4"></div>
+        </div>
+
+    </main>
+
+    <!-- クーポン発券確認モーダル -->
+    <div id="confirm-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 hidden">
+        <div class="bg-white rounded-lg p-5 max-w-sm w-full text-center shadow-xl">
+            <div class="text-3xl mb-2">⚠️</div>
+            <h3 class="font-bold text-base text-gray-800 mb-2" id="modal-title">クーポンを発券しますか？</h3>
+            <p class="text-xs text-red-600 font-bold bg-red-50 p-2.5 rounded border border-red-200 mb-4 text-left leading-relaxed">
+                ・発券は**1回限り**です。<br>
+                ・発券後**5分以内**に店頭で提示してください。<br>
+                ・5分経過するとクーポンは失効し、消去されます。
+            </p>
+            <div class="flex gap-2">
+                <button onclick="closeModal()" class="flex-1 py-2 bg-gray-200 text-gray-700 text-xs font-bold rounded hover:bg-gray-300">
+                    キャンセル
+                </button>
+                <button id="modal-confirm-btn" class="flex-1 py-2 bg-amber-600 text-white text-xs font-bold rounded shadow hover:bg-amber-700">
+                    理解したうえで発券する
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ボトムナビゲーション -->
+    <nav class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex justify-around p-3 shadow-lg max-w-md mx-auto z-50 pb-[env(safe-area-inset-bottom)]">
+        <button onclick="switchTab('map')" id="btn-map" class="flex flex-col items-center text-amber-900 font-bold text-xs">
+            <span class="text-xl">🗺️</span>
+            <span>マップ</span>
+        </button>
+        <button onclick="switchTab('scan')" id="btn-scan" class="flex flex-col items-center text-gray-400 text-xs">
+            <span class="text-xl">📷</span>
+            <span>QR読取</span>
+        </button>
+        <button onclick="switchTab('stamps')" id="btn-stamps" class="flex flex-col items-center text-gray-400 text-xs">
+            <span class="text-xl">⛩️</span>
+            <span>スタンプ・特典</span>
+        </button>
+    </nav>
+
+    <!-- アプリのロジック -->
+    <script>
+        const spots = [
+            { 
+                id: 1, 
+                name: "ひがし茶屋街の伝統町家A", 
+                category: "歴史的景観・茶屋", 
+                badgeColor: "bg-red-100 text-red-800", 
+                query: "金沢市東山1丁目 ひがし茶屋街", 
+                desc: "伝統的な出格子と群青塀が残る歴史的な茶屋建築です。", 
+                address: "金沢市東山1丁目", 
+                qrCode: "MACHiYA_ID_1",
+                couponCode: "KM-HIGASHI-2026",
+                couponTitle: "ひがし茶屋街・伝統茶屋の特製お茶菓子100円割引"
+            },
+            { 
+                id: 2, 
+                name: "主計町の宿泊施設型町家B", 
+                category: "宿泊施設（民泊）", 
+                badgeColor: "bg-blue-100 text-blue-800", 
+                query: "金沢市主計町", 
+                desc: "浅野川沿いの静かな茶屋街で、一棟貸しの宿泊施設として活用されています。", 
+                address: "金沢市主計町", 
+                qrCode: "MACHiYA_ID_2",
+                couponCode: "KM-KASUE-2026",
+                couponTitle: "主計町・一棟貸し宿泊ご優待（館内利用券500円分）"
+            },
+            { 
+                id: 3, 
+                name: "長町のカフェ・店舗型町家C", 
+                category: "カフェ・飲食店", 
+                badgeColor: "bg-green-100 text-green-800", 
+                query: "金沢市長町 武家屋敷", 
+                desc: "土塀が続く武家屋敷周辺にあり、内部を改装したおしゃれな町家カフェです。", 
+                address: "金沢市長町", 
+                qrCode: "MACHiYA_ID_3",
+                couponCode: "KM-NAGAMACHI-2026",
+                couponTitle: "長町武家屋敷カフェ・ドリンクサイズアップ無料券"
+            },
+            { 
+                id: 4, 
+                name: "香林坊のコミュニティ拠点町家D", 
+                category: "休憩所・コミュニティ", 
+                badgeColor: "bg-purple-100 text-purple-800", 
+                query: "金沢市片町 香林坊", 
+                desc: "中心街にありながら伝統的な梁を残し、市民や観光客の休憩所として活用されています。", 
+                address: "金沢市片町2丁目", 
+                qrCode: "MACHiYA_ID_4",
+                couponCode: "KM-KORINBO-2026",
+                couponTitle: "香林坊コミュニティ拠点・特製町家ポストカード進呈"
+            }
+        ];
+
+        let collectedStamps = JSON.parse(localStorage.getItem('kanazawa_stamps')) || [];
+        let couponStates = JSON.parse(localStorage.getItem('kanazawa_coupon_states')) || {}; 
+        let html5QrCode = null;
+        let scannerIsRunning = false;
+        let timerIntervals = {};
+
+        // スポット一覧の表示
+        const spotListEl = document.getElementById('spot-list');
+        spots.forEach(spot => {
+            const hasStamp = collectedStamps.includes(spot.id);
+            const item = document.createElement('div');
+            item.className = "p-3 bg-gray-50 border border-gray-200 rounded-lg";
+            item.innerHTML = `
+                <div class="flex justify-between items-start mb-1">
+                    <span class="text-[10px] font-bold px-2 py-0.5 rounded ${spot.badgeColor}">📍 ${spot.category}</span>
+                    <span class="text-[10px] text-gray-400">${spot.address}</span>
+                </div>
+                <h4 class="font-bold text-xs text-gray-800 mb-1">${spot.name}</h4>
+                <p class="text-[11px] text-gray-600 mb-2">${spot.desc}</p>
+                <div class="flex justify-end gap-1.5">
+                    <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(spot.query)}" target="_blank" class="bg-blue-600 active:scale-95 text-white px-3 py-1.5 rounded text-[11px] font-bold flex items-center shadow-sm transition">
+                        🗺️ Googleマップで見る
+                    </a>
+                    <span class="px-3 py-1.5 rounded text-[11px] font-bold shadow-sm ${hasStamp ? 'bg-amber-100 text-amber-800 border border-amber-300' : 'bg-gray-200 text-gray-600'}">
+                        ${hasStamp ? '✅ スタンプ取得済' : '🔒 未獲得'}
+                    </span>
+                </div>
+            `;
+            spotListEl.appendChild(item);
+        });
+
+        // 読み取り用QRコード＆シミュレーションボタンの生成
+        const qrDisplayContainer = document.getElementById('qr-display-container');
+        spots.forEach(spot => {
+            const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(spot.qrCode)}`;
+            const card = document.createElement('div');
+            card.className = "bg-white p-2 border border-amber-200 rounded text-center flex flex-col items-center shadow-sm";
+            card.innerHTML = `
+                <span class="text-[10px] font-bold text-amber-900 mb-1 truncate w-full">${spot.name}</span>
+                <img src="${qrApiUrl}" alt="${spot.name} QRコード" class="w-24 h-24 my-1 border rounded p-1 bg-white">
+                <button onclick="handleScanSuccess('${spot.qrCode}')" class="mt-1 w-full bg-amber-100 hover:bg-amber-200 active:scale-95 text-amber-900 border border-amber-300 rounded text-[9px] py-1 font-bold transition">
+                    ⚡ このスタンプを取得
+                </button>
+            `;
+            qrDisplayContainer.appendChild(card);
+        });
+
+        // カメラ起動関数（スマホ最適化・フォールバック対応）
+        function startScanner() {
+            if (scannerIsRunning) return;
+            
+            const resultEl = document.getElementById('scan-result');
+            resultEl.innerText = "カメラを初期化中...";
+
+            html5QrCode = new Html5Qrcode("reader");
+            html5QrCode.start(
+                { facingMode: "environment" },
+                {
+                    fps: 10,
+                    qrbox: { width: 220, height: 220 }
+                },
+                (decodedText, decodedResult) => {
+                    handleScanSuccess(decodedText);
+                    stopScanner();
+                },
+                (errorMessage) => {}
+            ).then(() => {
+                scannerIsRunning = true;
+                resultEl.innerText = "QRコードをカメラにかざしてください";
+            }).catch(err => {
+                html5QrCode.start(
+                    {},
+                    { fps: 10, qrbox: { width: 220, height: 220 } },
+                    (decodedText) => { handleScanSuccess(decodedText); stopScanner(); },
+                    (err) => {}
+                ).then(() => {
+                    scannerIsRunning = true;
+                    resultEl.innerText = "QRコードをカメラにかざしてください";
+                }).catch(e => {
+                    resultEl.innerText = "カメラの起動に失敗しました（権限をご確認ください）";
+                    console.error(e);
+                });
+            });
+        }
+
+        // カメラ停止関数
+        function stopScanner() {
+            if (html5QrCode && scannerIsRunning) {
+                html5QrCode.stop().then(() => {
+                    scannerIsRunning = false;
+                    const res = document.getElementById('scan-result');
+                    if(res) res.innerText = "カメラは停止しています";
+                }).catch(err => {
+                    console.error("カメラ停止エラー", err);
+                });
+            }
+        }
+
+        // QRコード読み取り成功時の処理
+        function handleScanSuccess(decodedText) {
+            const matchedSpot = spots.find(spot => spot.qrCode === decodedText);
+
+            if (matchedSpot) {
+                if (!collectedStamps.includes(matchedSpot.id)) {
+                    collectedStamps.push(matchedSpot.id);
+                    localStorage.setItem('kanazawa_stamps', JSON.stringify(collectedStamps));
+                    
+                    if (navigator.vibrate) {
+                        navigator.vibrate(200);
+                    }
+
+                    alert(`🎉 【${matchedSpot.name}】のスタンプをゲットしました！\n専用クーポンが利用可能になりました！`);
+                    updateStampsUI();
+                    switchTab('stamps');
+                } else {
+                    alert(`ℹ️ 【${matchedSpot.name}】のスタンプはすでに獲得済みです！`);
+                }
+            } else {
+                alert(`⚠️ 有効な町家QRコードではありません (${decodedText})`);
+            }
+        }
+
+        // モダル制御
+        let pendingSpotId = null;
+
+        function openModal(spotId) {
+            pendingSpotId = spotId;
+            const spot = spots.find(s => s.id === spotId);
+            document.getElementById('modal-title').innerText = `【${spot.name.slice(0,12)}...】のクーポンを発券しますか？`;
+            document.getElementById('modal-confirm-btn').onclick = () => issueCoupon(spotId);
+            document.getElementById('confirm-modal').classList.remove('hidden');
+        }
+
+        function closeModal() {
+            document.getElementById('confirm-modal').classList.add('hidden');
+            pendingSpotId = null;
+        }
+
+        // クーポン発券処理（スポット別）
+        function issueCoupon(spotId) {
+            closeModal();
+            const expireTime = Date.now() + 5 * 60 * 1000; // 5分後
+            
+            couponStates[spotId] = {
+                expireTime: expireTime,
+                isUsed: false
+            };
+            localStorage.setItem('kanazawa_coupon_states', JSON.stringify(couponStates));
+            updateStampsUI();
+        }
+
+        // カウントダウン処理
+        function startCountdown(spotId, expireTime) {
+            if (timerIntervals[spotId]) clearInterval(timerIntervals[spotId]);
+
+            function updateTimer() {
+                const now = Date.now();
+                const diff = Math.ceil((expireTime - now) / 1000);
+
+                const timerEl = document.getElementById(`coupon-timer-${spotId}`);
+                if (diff <= 0) {
+                    clearInterval(timerIntervals[spotId]);
+                    if (!couponStates[spotId]) couponStates[spotId] = {};
+                    couponStates[spotId].isUsed = true;
+                    localStorage.setItem('kanazawa_coupon_states', JSON.stringify(couponStates));
+                    updateStampsUI();
+                } else if (timerEl) {
+                    const minutes = Math.floor(diff / 60);
+                    const seconds = diff % 60;
+                    timerEl.innerText = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+                }
+            }
+
+            updateTimer();
+            timerIntervals[spotId] = setInterval(updateTimer, 1000);
+        }
+
+        // スタンプ・クーポンUIの更新
+        function updateStampsUI() {
+            const grid = document.getElementById('stamp-grid');
+            if(!grid) return;
+            grid.innerHTML = "";
+            
+            spots.forEach(spot => {
+                const hasStamp = collectedStamps.includes(spot.id);
+                const card = document.createElement('div');
+                card.className = `p-3 rounded-lg border text-center flex flex-col items-center justify-center ${hasStamp ? 'bg-amber-50 border-amber-300' : 'bg-gray-100 border-gray-200'}`;
+                card.innerHTML = `
+                    <div class="text-2xl mb-1">${hasStamp ? '⛩️' : '🔒'}</div>
+                    <span class="text-[11px] font-bold ${hasStamp ? 'text-amber-900' : 'text-gray-400'}">${spot.name}</span>
+                    <span class="text-[9px] mt-1 px-2 py-0.5 rounded ${hasStamp ? 'bg-amber-200 text-amber-800 font-bold' : 'bg-gray-200 text-gray-500'}">${hasStamp ? '獲得済み' : '未獲得'}</span>
+                `;
+                grid.appendChild(card);
+            });
+
+            // スポット別クーポンカードの生成
+            const couponContainer = document.getElementById('coupon-container');
+            if(couponContainer) {
+                couponContainer.innerHTML = `<h3 class="font-bold text-xs text-gray-500 uppercase mb-2">🎟️ スポット別特典クーポン一覧</h3>`;
+                
+                spots.forEach(spot => {
+                    const hasStamp = collectedStamps.includes(spot.id);
+                    const state = couponStates[spot.id] || { expireTime: 0, isUsed: false };
+                    const now = Date.now();
+                    const cardBox = document.createElement('div');
+                    cardBox.className = "bg-white p-4 rounded-lg shadow border border-amber-100";
+
+                    if (!hasStamp) {
+                        // ロック中
+                        cardBox.innerHTML = `
+                            <div class="flex items-center justify-between mb-1">
+                                <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-gray-100 text-gray-500">🔒 ${spot.name}</span>
+                                <span class="text-[10px] text-gray-400">未解放</span>
+                            </div>
+                            <h4 class="font-bold text-xs text-gray-700 mb-1">${spot.couponTitle}</h4>
+                            <p class="text-[10px] text-gray-500">現地でこのスポットのQRコードを読み込むとクーポンが解放されます。</p>
+                        `;
+                    } else if (state.isUsed || (state.expireTime > 0 && now >= state.expireTime)) {
+                        // 失効・使用済み
+                        state.isUsed = true;
+                        cardBox.innerHTML = `
+                            <div class="flex items-center justify-between mb-1">
+                                <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-gray-100 text-gray-600">⚠️ ${spot.name}</span>
+                                <span class="text-[10px] text-red-600 font-bold">クーポン失効・使用済み</span>
+                            </div>
+                            <h4 class="font-bold text-xs text-gray-500 mb-1 line-through">${spot.couponTitle}</h4>
+                            <p class="text-[10px] text-gray-400">有効期限（5分）が切れたか、すでに使用されました。</p>
+                        `;
+                    } else if (state.expireTime > 0 && now < state.expireTime) {
+                        // 発券中・カウントダウン中
+                        cardBox.innerHTML = `
+                            <div class="flex items-center justify-between mb-1">
+                                <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-green-100 text-green-800">🎉 ${spot.name} - クーポン提示中</span>
+                            </div>
+                            <h4 class="font-bold text-xs text-amber-900 mb-2">${spot.couponTitle}</h4>
+                            
+                            <div class="bg-red-50 text-red-600 border border-red-200 p-2 rounded mb-2 text-xs font-bold text-center">
+                                ⏳ 有効期限残り: <span id="coupon-timer-${spot.id}" class="text-base font-mono">05:00</span>
+                            </div>
+
+                            <div class="bg-amber-100 border-2 border-dashed border-amber-400 p-3 rounded text-amber-900 font-mono text-center">
+                                <span class="text-[9px] text-amber-800 block mb-0.5 font-sans font-bold">【 店頭提示用コード 】</span>
+                                <span class="text-base font-extrabold tracking-wider">${spot.couponCode}</span>
+                            </div>
+                            <p class="text-[10px] text-gray-500 mt-2 text-center">※お店のスタッフにこの画面をご提示ください。</p>
+                        `;
+                        startCountdown(spot.id, state.expireTime);
+                    } else {
+                        // 獲得済みだが未発券
+                        cardBox.innerHTML = `
+                            <div class="flex items-center justify-between mb-1">
+                                <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-800">🎁 ${spot.name}</span>
+                                <span class="text-[10px] text-amber-700 font-bold">発券可能</span>
+                            </div>
+                            <h4 class="font-bold text-xs text-gray-800 mb-2">${spot.couponTitle}</h4>
+                            <button onclick="openModal(${spot.id})" class="w-full bg-amber-600 hover:bg-amber-700 active:scale-95 text-white font-bold py-2 px-3 rounded text-xs shadow transition flex items-center justify-center gap-1">
+                                <span>🎟️</span>
+                                <span>このクーポンの発券手続きへ</span>
+                            </button>
+                        `;
+                    }
+                    couponContainer.appendChild(cardBox);
+                });
+            }
+        }
+
+        // タブ切り替え
+        function switchTab(tabName) {
+            if (tabName !== 'scan') {
+                stopScanner();
+            }
+
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.getElementById(`tab-${tabName}`).classList.remove('hidden');
+
+            ['map', 'scan', 'stamps'].forEach(t => {
+                const btn = document.getElementById(`btn-${t}`);
+                if (btn) {
+                    if (t === tabName) {
+                        btn.className = "flex flex-col items-center text-amber-900 font-bold text-xs";
+                    } else {
+                        btn.className = "flex flex-col items-center text-gray-400 text-xs";
+                    }
+                }
+            });
+
+            if (tabName === 'scan') {
+                startScanner();
+            }
+        }
+
+        updateStampsUI();
+    </script>
+</body>
+</html>
